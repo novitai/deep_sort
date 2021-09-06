@@ -16,7 +16,7 @@ class Tracker:
     metric : nn_matching.NearestNeighborDistanceMetric
         A distance metric for measurement-to-track association.
     max_age : int
-        Maximum number of missed misses before a track is deleted.
+        Maximum number of missed misses before a track is deleted. Default 30
     n_init : int
         Number of consecutive detections before the track is confirmed. The
         track state is set to `Deleted` if a miss occurs within the first
@@ -37,7 +37,7 @@ class Tracker:
 
     """
 
-    def __init__(self, metric, max_iou_distance=0.7, max_age=30, n_init=3):
+    def __init__(self, metric, max_iou_distance=0.7, max_age=40, n_init=3):
         self.metric = metric
         self.max_iou_distance = max_iou_distance
         self.max_age = max_age
@@ -78,6 +78,9 @@ class Tracker:
             self._initiate_track(detections[detection_idx])
         self.tracks = [t for t in self.tracks if not t.is_deleted()]
 
+
+
+
         # Update distance metric.
         active_targets = [t.track_id for t in self.tracks if t.is_confirmed()]
         features, targets = [], []
@@ -86,7 +89,19 @@ class Tracker:
                 continue
             features += track.features
             targets += [track.track_id for _ in track.features]
-            track.features = []
+            #track.features = [] # WHY NOT retain feature info inside tracker.
+            track.features = [track.features[-1]] #Retain most recent feature of the track.
+            #track.class_name = [track.class_names[-1]] #Retain most recent feature of the track.
+            #track.confidence = [track.confidences[-1]] #Retain most recent feature of the track.
+            
+
+
+        #for t in self.tracks:
+        #    if t.is_confirmed():
+        #        print(len(t.features),'here_1',t.track_id,np.array(t.features).shape)
+        
+        #print(np.array(features).shape)
+
         self.metric.partial_fit(
             np.asarray(features), np.asarray(targets), active_targets)
 
@@ -134,5 +149,7 @@ class Tracker:
         mean, covariance = self.kf.initiate(detection.to_xyah())
         self.tracks.append(Track(
             mean, covariance, self._next_id, self.n_init, self.max_age,
-            detection.feature))
+            detection.feature,detection.class_name,detection.confidence))
+        #print(detection.feature)
+        #print(detection.feature.shape)
         self._next_id += 1
